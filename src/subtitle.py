@@ -6,7 +6,9 @@ Created on Sun Jun 28 15:07:08 2020
 """
 from speech_to_text import speech_to_text
 from split_audio_video import split_audio_video
-from split import split
+#from split import split
+from make_audio_chunks import make_audio_chunks
+import os
 import sys
 import wave
 import contextlib
@@ -29,25 +31,24 @@ def format_time(seconds):
     seconds%= 3600
     minutes = seconds // 60
     seconds%=60
-    return "%d:%02d:%02d:00:000" % (hour, minutes, seconds)
+    return "%02d:%02d:%02d,000" % (hour, minutes, seconds)
 
 def duration(audio_path):
     with contextlib.closing(wave.open(audio_path, 'r')) as f:
         frame_count = f.getnframes()
         fps = f.getframerate()
-        return frames/float(fps)
+        return frame_count/float(fps)
 
 def export(_subtitles):
     title = _subtitles.title
-    f = open('../subs/'+title+'.srt', 'w')
-    f.write()
-    f.close()
     f = open('../subs/'+title+'.srt', 'a')
     for sub in _subtitles.subs:
-        f.write(sub.sequence_num + '\n')
+        print ('{}{}'.format(sub.start_time, sub.end_time))
+
+        f.write(str(sub.sequence_num)+ '\n')
         start = format_time(sub.start_time)
         end = format_time(sub.end_time)
-        f.write(start + '--> ' + end + '\n')
+        f.write(start + ' --> ' + end + '\n')
         f.write(sub.text)
         f.write('\n\n')
     f.close()
@@ -56,34 +57,38 @@ def export(_subtitles):
 def convert(language):
     return 1
 
-def test():
-    return 1
-
-
-def cleanup():
-    return 1
-
 def main():
     #get file
     path = sys.argv[1]
     #language = sys.argv[2]
-    print(path)
+    print('Video path: {}'.format(path))
     title = ntpath.basename(path)
-    print(title)
+    title = os.path.splitext(title)[0]
+    print('Video title: {}'.format(title))
     Subtitles = subtitles(title)
     #if language:
     #    print('not implemented')
+    print('Separating audio from video')
     audio_path = split_audio_video(path,title)
-    duration = duration(audio_path)
-    inc = 1
-    while x <= duration:
-        split(audio_path, x, x+15, inc, title)
-        inc+=1
-        x+=15        
-    for i in range(1, inc):
-        text = speech_to_text('../audio/'+title+'-'+inc+'.wav')        
-        sub = subtitle_line(i, text, i-1*15, (i-1*15)+15)
+    dur = duration(audio_path)
+    print('Video length: {}s'.format(dur))
+ #   inc = 0
+ #   x=0
+ #   while x <= dur:
+ #       split(audio_path, x, x+15, inc, title)
+ #       inc+=1
+ #       x+=15        
+ #
+    print('Getting audio chunks')
+    inc = make_audio_chunks(audio_path, title)
+    print('Generating subtitles')
+    for i in range(0, inc-1):
+        text = speech_to_text('../audio/'+title+'-'+str(i+1)+'.wav')   
+        print('Generate subtitles for sequence {} of {} for {}'.format(i+1, inc, title))    
+        sub = subtitle_line(i+1, text, i*15, (i*15)+15)
         Subtitles.subs.append(sub)
+    print('All subtitles generated')
+    print('Exporting')    
     export(Subtitles)
 
 
